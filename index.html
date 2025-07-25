@@ -1,29 +1,158 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Mood Journal – Login/Register</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EmotionTracker Pro</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="light">
-  <div class="auth-wrapper">
-    <div class="auth-card" id="loginCard">
-      <h2>Login</h2>
-      <input type="text" id="loginUsername" placeholder="Username">
-      <input type="password" id="loginPassword" placeholder="Password">
-      <button onclick="login()">Login</button>
-      <p>No account? <span onclick="showRegister()">Register here</span></p>
-    </div>
-    <div class="auth-card hidden" id="registerCard">
-      <h2>Register</h2>
-      <input type="text" id="regUsername" placeholder="Username">
-      <input type="password" id="regPassword" placeholder="Password">
-      <input type="password" id="regConfirm" placeholder="Confirm Password">
-      <button onclick="register()">Register</button>
-      <p>Have account? <span onclick="showLogin()">Login here</span></p>
+  <div id="app" class="app">
+    <aside class="sidebar">
+      <div class="logo">EmotionTracker Pro</div>
+      <nav>
+        <div class="nav-item active" onclick="showPage('dashboard')">
+          📊 Dashboard
+        </div>
+        <div class="nav-item" onclick="showPage('journal')">
+          📝 Journal
+        </div>
+        <div class="nav-item" onclick="showPage('analytics')">
+          📈 Analytics
+        </div>
+        <div class="nav-item" onclick="showPage('settings')">
+          ⚙️ Settings
+        </div>
+      </nav>
+      <div class="theme-toggle" onclick="toggleTheme()">🌓 Theme</div>
+    </aside>
+
+    <main class="main">
+      <header class="header">
+        <h1 id="pageTitle">Dashboard</h1>
+        <div>
+          <span id="userName">EmotionTracker</span>
+        </div>
+      </header>
+
+      <div id="dashboardPage" class="page active">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-number" id="totalEntries">0</div>
+            <div>Total Entries</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="currentStreak">0</div>
+            <div>Day Streak</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number" id="topMood">-</div>
+            <div>Top Mood</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Quick Mood Entry</h2>
+          <div class="mood-buttons" id="quickMoods"></div>
+          <textarea id="quickText" placeholder="How are you feeling? (optional)" rows="3"></textarea>
+          <button onclick="quickSave()">Save Entry</button>
+        </div>
+
+        <div class="card">
+          <h2>Recent Entries</h2>
+          <div class="entries-grid" id="recentEntries"></div>
+        </div>
+      </div>
+
+      <div id="journalPage" class="page">
+        <div class="card">
+          <h2>New Journal Entry</h2>
+          <div class="mood-buttons" id="journalMoods"></div>
+          <textarea id="journalText" placeholder="Write your thoughts..." rows="6"></textarea>
+          <div style="display: flex; gap: 1rem;">
+            <button onclick="saveEntry()">Save Entry</button>
+            <button onclick="useTemplate()" class="secondary">Use Template</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>All Entries</h2>
+          <div class="search-bar">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="Search entries..." oninput="searchEntries()">
+          </div>
+          <div class="entries-grid" id="allEntries"></div>
+        </div>
+      </div>
+
+      <div id="analyticsPage" class="page">
+        <div class="card">
+          <h2>Mood Analytics</h2>
+          <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <select id="chartType" onchange="updateChart()">
+              <option value="bar">Bar Chart</option>
+              <option value="pie">Pie Chart</option>
+              <option value="line">Line Chart</option>
+            </select>
+            <select id="timeRange" onchange="updateChart()">
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+              <option value="90">Last 90 days</option>
+              <option value="365">Last year</option>
+            </select>
+          </div>
+          <canvas id="moodChart" width="400" height="200"></canvas>
+        </div>
+
+        <div class="card">
+          <h2>Insights</h2>
+          <div id="insights"></div>
+        </div>
+      </div>
+
+      <div id="settingsPage" class="page">
+        <div class="card">
+          <h2>Profile Settings</h2>
+          <input type="text" id="displayName" placeholder="Display Name">
+          <button onclick="saveSettings()">Save Settings</button>
+        </div>
+
+        <div class="card">
+          <h2>Mood Management</h2>
+          <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+            <input type="text" id="newMood" placeholder="Add new mood">
+            <button onclick="addMood()" style="width: auto;">Add</button>
+          </div>
+          <div id="moodList"></div>
+        </div>
+
+        <div class="card">
+          <h2>Data Management</h2>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <button onclick="exportData()" class="secondary">Export Data</button>
+            <button onclick="importData()" class="secondary">Import Data</button>
+            <button onclick="clearAllData()" class="danger">Clear All Data</button>
+          </div>
+          <input type="file" id="importFile" accept=".json" class="hidden" onchange="handleImport()">
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <h2>Edit Entry</h2>
+      <div class="mood-buttons" id="editMoods"></div>
+      <textarea id="editText" rows="6"></textarea>
+      <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+        <button onclick="updateEntry()">Update</button>
+        <button onclick="closeModal()" class="secondary">Cancel</button>
+      </div>
     </div>
   </div>
+
+  <div id="toast" class="toast"></div>
 
   <script src="script.js"></script>
 </body>
