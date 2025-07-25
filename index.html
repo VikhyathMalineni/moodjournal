@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mood Journal – Login/Register</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="light">
+  <div class="auth-wrapper">
+    <div class="auth-card" id="loginCard">
+      <h2>Login</h2>
+      <input type="text" id="loginUsername" placeholder="Username">
+      <input type="password" id="loginPassword" placeholder="Password">
+      <button onclick="login()">Login</button>
+      <p>No account? <span onclick="showRegister()">Register here</span></p>
+    </div>
+    <div class="auth-card hidden" id="registerCard">
+      <h2>Register</h2>
+      <input type="text" id="regUsername" placeholder="Username">
+      <input type="password" id="regPassword" placeholder="Password">
+      <input type="password" id="regConfirm" placeholder="Confirm Password">
+      <button onclick="register()">Register</button>
+      <p>Have account? <span onclick="showLogin()">Login here</span></p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
