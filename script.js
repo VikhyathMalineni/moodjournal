@@ -13,36 +13,34 @@ const templates = [
   "Tomorrow I want to...",
 ]
 
-function showToast(message) {
-  const toast = document.getElementById("toast")
-  toast.textContent = message
-  toast.classList.add("show")
-  setTimeout(() => toast.classList.remove("show"), 3000)
+function toast(msg) {
+  const t = document.getElementById("toast")
+  t.textContent = msg
+  t.classList.add("show")
+  setTimeout(() => t.classList.remove("show"), 3000)
 }
 
-function saveData() {
-  localStorage.setItem("emotiontracker_entries", JSON.stringify(entries))
-  localStorage.setItem("emotiontracker_moods", JSON.stringify(moods))
-  localStorage.setItem("emotiontracker_settings", JSON.stringify(settings))
+function save() {
+  localStorage.setItem("et_entries", JSON.stringify(entries))
+  localStorage.setItem("et_moods", JSON.stringify(moods))
+  localStorage.setItem("et_settings", JSON.stringify(settings))
 }
 
-function loadData() {
-  entries = JSON.parse(localStorage.getItem("emotiontracker_entries") || "[]")
+function load() {
+  entries = JSON.parse(localStorage.getItem("et_entries") || "[]")
   moods = JSON.parse(
-    localStorage.getItem("emotiontracker_moods") ||
+    localStorage.getItem("et_moods") ||
       JSON.stringify(["Happy", "Sad", "Anxious", "Excited", "Calm", "Angry", "Grateful", "Stressed"]),
   )
-  settings = JSON.parse(
-    localStorage.getItem("emotiontracker_settings") || '{"displayName":"EmotionTracker","theme":"light"}',
-  )
+  settings = JSON.parse(localStorage.getItem("et_settings") || '{"displayName":"EmotionTracker","theme":"light"}')
 
   document.getElementById("displayName").value = settings.displayName
   document.getElementById("userName").textContent = settings.displayName
   document.body.className = settings.theme
 
-  renderMoodButtons()
-  updateDashboard()
-  renderAllEntries()
+  renderMoods()
+  updateDash()
+  renderEntries()
   renderMoodList()
 }
 
@@ -50,8 +48,8 @@ function showPage(page) {
   document.querySelectorAll(".page").forEach((p) => p.classList.remove("active"))
   document.querySelectorAll(".nav-item").forEach((n) => n.classList.remove("active"))
 
-  document.getElementById(`${page}Page`).classList.add("active")
-  document.querySelector(`[onclick="showPage('${page}')"]`).classList.add("active")
+  document.getElementById(page + "Page").classList.add("active")
+  document.querySelector(`[data-page="${page}"]`).classList.add("active")
 
   const titles = { dashboard: "Dashboard", journal: "Journal", analytics: "Analytics", settings: "Settings" }
   document.getElementById("pageTitle").textContent = titles[page]
@@ -59,79 +57,70 @@ function showPage(page) {
   if (page === "analytics") updateChart()
 }
 
-function renderMoodButtons() {
-  const containers = ["quickMoods", "journalMoods", "editMoods"]
-  containers.forEach((id) => {
+function renderMoods() {
+  ;["quickMoods", "journalMoods", "editMoods"].forEach((id) => {
     const container = document.getElementById(id)
     if (container) {
       container.innerHTML = moods
-        .map(
-          (mood) => `<button type="button" class="mood-btn" onclick="selectMood('${mood}', '${id}')">${mood}</button>`,
-        )
+        .map((mood) => `<button type="button" class="mood-btn" data-mood="${mood}">${mood}</button>`)
         .join("")
     }
   })
 }
 
-function selectMood(mood, container) {
-  document.querySelectorAll(`#${container} .mood-btn`).forEach((btn) => btn.classList.remove("active"))
-  document.querySelector(`#${container} [onclick="selectMood('${mood}', '${container}')"]`).classList.add("active")
+function selectMood(btn) {
+  btn.parentElement.querySelectorAll(".mood-btn").forEach((b) => b.classList.remove("active"))
+  btn.classList.add("active")
 }
 
 function quickSave() {
-  const selectedMood = document.querySelector("#quickMoods .mood-btn.active")
+  const selected = document.querySelector("#quickMoods .mood-btn.active")
   const text = document.getElementById("quickText").value.trim()
 
-  if (!selectedMood) {
-    showToast("Please select a mood")
-    return
-  }
+  if (!selected) return toast("Please select a mood")
 
   const entry = {
     id: Date.now(),
-    mood: selectedMood.textContent,
-    text: text || `Feeling ${selectedMood.textContent.toLowerCase()}`,
-    timestamp: new Date().toISOString(),
+    mood: selected.dataset.mood,
+    text: text || `Feeling ${selected.dataset.mood.toLowerCase()}`,
+    timestamp: Date.now(),
     date: new Date().toDateString(),
   }
 
   entries.unshift(entry)
-  saveData()
-  updateDashboard()
-  renderAllEntries()
+  save()
+  updateDash()
+  renderEntries()
 
   document.getElementById("quickText").value = ""
   document.querySelectorAll("#quickMoods .mood-btn").forEach((btn) => btn.classList.remove("active"))
 
-  showToast("Entry saved!")
+  toast("Entry saved!")
 }
 
 function saveEntry() {
-  const selectedMood = document.querySelector("#journalMoods .mood-btn.active")
+  const selected = document.querySelector("#journalMoods .mood-btn.active")
   const text = document.getElementById("journalText").value.trim()
 
-  if (!selectedMood || !text) {
-    showToast("Please select a mood and write something")
-    return
-  }
+  if (!selected || !text) return toast("Please select a mood and write something")
 
   const entry = {
     id: Date.now(),
-    mood: selectedMood.textContent,
+    mood: selected.dataset.mood,
     text,
-    timestamp: new Date().toISOString(),
+    timestamp: Date.now(),
     date: new Date().toDateString(),
   }
 
   entries.unshift(entry)
-  saveData()
-  updateDashboard()
-  renderAllEntries()
+  save()
+  updateDash()
+  renderEntries()
 
   document.getElementById("journalText").value = ""
   document.querySelectorAll("#journalMoods .mood-btn").forEach((btn) => btn.classList.remove("active"))
 
-  showToast("Entry saved!")
+  toast("Entry saved!")
 }
 
 function useTemplate() {
@@ -139,17 +128,13 @@ function useTemplate() {
   document.getElementById("journalText").value = template
 }
 
-function updateDashboard() {
+function updateDash() {
   document.getElementById("totalEntries").textContent = entries.length
+  document.getElementById("currentStreak").textContent = calcStreak()
+  document.getElementById("topMood").textContent = getTopMood() || "-"
 
-  const streak = calculateStreak()
-  document.getElementById("currentStreak").textContent = streak
-
-  const topMood = getTopMood()
-  document.getElementById("topMood").textContent = topMood || "-"
-
-  const recentEntries = entries.slice(0, 6)
-  document.getElementById("recentEntries").innerHTML = recentEntries
+  const recent = entries.slice(0, 6)
+  document.getElementById("recentEntries").innerHTML = recent
     .map(
       (entry) =>
         `<div class="entry-card">
@@ -167,7 +152,7 @@ function updateDashboard() {
     .join("")
 }
 
-function renderAllEntries() {
+function renderEntries() {
   const container = document.getElementById("allEntries")
   if (!container) return
 
@@ -218,10 +203,10 @@ function editEntry(id) {
   if (!editingEntry) return
 
   document.getElementById("editText").value = editingEntry.text
-  renderMoodButtons()
+  renderMoods()
 
   setTimeout(() => {
-    const moodBtn = document.querySelector(`#editMoods [onclick="selectMood('${editingEntry.mood}', 'editMoods')"]`)
+    const moodBtn = document.querySelector(`#editMoods [data-mood="${editingEntry.mood}"]`)
     if (moodBtn) moodBtn.classList.add("active")
   }, 100)
 
@@ -229,31 +214,28 @@ function editEntry(id) {
 }
 
 function updateEntry() {
-  const selectedMood = document.querySelector("#editMoods .mood-btn.active")
+  const selected = document.querySelector("#editMoods .mood-btn.active")
   const text = document.getElementById("editText").value.trim()
 
-  if (!selectedMood || !text) {
-    showToast("Please select a mood and write something")
-    return
-  }
+  if (!selected || !text) return toast("Please select a mood and write something")
 
-  editingEntry.mood = selectedMood.textContent
+  editingEntry.mood = selected.dataset.mood
   editingEntry.text = text
 
-  saveData()
-  updateDashboard()
-  renderAllEntries()
+  save()
+  updateDash()
+  renderEntries()
   closeModal()
-  showToast("Entry updated!")
+  toast("Entry updated!")
 }
 
 function deleteEntry(id) {
   if (confirm("Delete this entry?")) {
     entries = entries.filter((e) => e.id !== id)
-    saveData()
-    updateDashboard()
-    renderAllEntries()
-    showToast("Entry deleted")
+    save()
+    updateDash()
+    renderEntries()
+    toast("Entry deleted")
   }
 }
 
@@ -262,13 +244,12 @@ function closeModal() {
   editingEntry = null
 }
 
-function calculateStreak() {
+function calcStreak() {
   if (entries.length === 0) return 0
 
   const dates = [...new Set(entries.map((e) => new Date(e.timestamp).toDateString()))].sort(
     (a, b) => new Date(b) - new Date(a),
   )
-
   let streak = 0
   const currentDate = new Date()
 
@@ -287,30 +268,28 @@ function calculateStreak() {
 function getTopMood() {
   if (entries.length === 0) return null
 
-  const moodCounts = {}
+  const counts = {}
   entries.forEach((entry) => {
-    moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+    counts[entry.mood] = (counts[entry.mood] || 0) + 1
   })
 
-  return Object.keys(moodCounts).reduce((a, b) => (moodCounts[a] > moodCounts[b] ? a : b))
+  return Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b))
 }
 
 function updateChart() {
   const chartType = document.getElementById("chartType").value
   const timeRange = Number.parseInt(document.getElementById("timeRange").value)
 
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - timeRange)
+  const cutoff = Date.now() - timeRange * 24 * 60 * 60 * 1000
+  const filtered = entries.filter((entry) => entry.timestamp >= cutoff)
+  const counts = {}
 
-  const filteredEntries = entries.filter((entry) => new Date(entry.timestamp) >= cutoff)
-  const moodCounts = {}
-
-  filteredEntries.forEach((entry) => {
-    moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+  filtered.forEach((entry) => {
+    counts[entry.mood] = (counts[entry.mood] || 0) + 1
   })
 
-  const labels = Object.keys(moodCounts)
-  const data = Object.values(moodCounts)
+  const labels = Object.keys(counts)
+  const data = Object.values(counts)
 
   if (chart) chart.destroy()
 
@@ -336,21 +315,27 @@ function updateChart() {
     },
   })
 
-  generateInsights(filteredEntries, moodCounts)
+  generateInsights(filtered, counts)
 }
 
-function generateInsights(filteredEntries, moodCounts) {
+function generateInsights(filtered, counts) {
   const insights = []
 
-  if (filteredEntries.length > 0) {
-    const topMood = Object.keys(moodCounts).reduce((a, b) => (moodCounts[a] > moodCounts[b] ? a : b))
-    insights.push(`Your most frequent mood is ${topMood} (${moodCounts[topMood]} times)`)
+  if (filtered.length > 0) {
+    const topMood = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b))
+    insights.push(`Most frequent mood: ${topMood} (${counts[topMood]} times)`)
 
-    const avgPerDay = (filteredEntries.length / Number.parseInt(document.getElementById("timeRange").value)).toFixed(1)
-    insights.push(`You average ${avgPerDay} entries per day`)
+    const avgPerDay = (filtered.length / Number.parseInt(document.getElementById("timeRange").value)).toFixed(1)
+    insights.push(`Average entries per day: ${avgPerDay}`)
 
-    const uniqueMoods = Object.keys(moodCounts).length
-    insights.push(`You've experienced ${uniqueMoods} different moods`)
+    const uniqueMoods = Object.keys(counts).length
+    insights.push(`Different moods experienced: ${uniqueMoods}`)
+
+    const moodTrend = predictMoodTrend()
+    if (moodTrend) insights.push(`Predicted next mood: ${moodTrend}`)
+
+    const bestDay = getBestDay()
+    if (bestDay) insights.push(`Most active day: ${bestDay}`)
   } else {
     insights.push("No entries in selected time range")
   }
@@ -358,33 +343,55 @@ function generateInsights(filteredEntries, moodCounts) {
   document.getElementById("insights").innerHTML = insights.map((insight) => `<p>• ${insight}</p>`).join("")
 }
 
+function predictMoodTrend() {
+  if (entries.length < 3) return null
+
+  const recent = entries.slice(0, 5)
+  const moodCounts = {}
+
+  recent.forEach((entry) => {
+    moodCounts[entry.mood] = (moodCounts[entry.mood] || 0) + 1
+  })
+
+  return Object.keys(moodCounts).reduce((a, b) => (moodCounts[a] > moodCounts[b] ? a : b))
+}
+
+function getBestDay() {
+  if (entries.length === 0) return null
+
+  const dayCounts = {}
+  entries.forEach((entry) => {
+    const day = new Date(entry.timestamp).toLocaleDateString("en-US", { weekday: "long" })
+    dayCounts[day] = (dayCounts[day] || 0) + 1
+  })
+
+  return Object.keys(dayCounts).reduce((a, b) => (dayCounts[a] > dayCounts[b] ? a : b))
+}
+
 function addMood() {
   const newMood = document.getElementById("newMood").value.trim()
   if (!newMood) return
 
-  if (moods.includes(newMood)) {
-    showToast("Mood already exists")
-    return
-  }
+  if (moods.includes(newMood)) return toast("Mood already exists")
 
   moods.push(newMood)
-  saveData()
-  renderMoodButtons()
+  save()
+  renderMoods()
   renderMoodList()
   document.getElementById("newMood").value = ""
-  showToast("Mood added!")
+  toast("Mood added!")
 }
 
 function removeMood(mood) {
   if (confirm(`Remove mood "${mood}"? This will also remove all entries with this mood.`)) {
     moods = moods.filter((m) => m !== mood)
     entries = entries.filter((e) => e.mood !== mood)
-    saveData()
-    renderMoodButtons()
+    save()
+    renderMoods()
     renderMoodList()
-    updateDashboard()
-    renderAllEntries()
-    showToast("Mood removed")
+    updateDash()
+    renderEntries()
+    toast("Mood removed")
   }
 }
 
@@ -405,15 +412,15 @@ function renderMoodList() {
 
 function saveSettings() {
   settings.displayName = document.getElementById("displayName").value.trim() || "EmotionTracker"
-  saveData()
+  save()
   document.getElementById("userName").textContent = settings.displayName
-  showToast("Settings saved!")
+  toast("Settings saved!")
 }
 
 function toggleTheme() {
   settings.theme = settings.theme === "light" ? "dark" : "light"
   document.body.className = settings.theme
-  saveData()
+  save()
 }
 
 function exportData() {
@@ -425,7 +432,7 @@ function exportData() {
   a.download = `emotion-tracker-${new Date().toISOString().split("T")[0]}.json`
   a.click()
   URL.revokeObjectURL(url)
-  showToast("Data exported!")
+  toast("Data exported!")
 }
 
 function importData() {
@@ -444,11 +451,11 @@ function handleImport() {
       if (data.moods) moods = data.moods
       if (data.settings) settings = { ...settings, ...data.settings }
 
-      saveData()
-      loadData()
-      showToast("Data imported successfully!")
+      save()
+      load()
+      toast("Data imported!")
     } catch (error) {
-      showToast("Invalid file format")
+      toast("Invalid file format")
     }
   }
   reader.readAsText(file)
@@ -459,16 +466,42 @@ function clearAllData() {
     entries = []
     moods = ["Happy", "Sad", "Anxious", "Excited", "Calm", "Angry", "Grateful", "Stressed"]
     settings = { displayName: "EmotionTracker", theme: "light" }
-    saveData()
-    loadData()
-    showToast("All data cleared")
+    save()
+    load()
+    toast("All data cleared")
   }
 }
 
-document.addEventListener("click", (e) => {
-  if (e.target.classList.contains("modal")) {
-    closeModal()
-  }
-})
+document.addEventListener("DOMContentLoaded", () => {
+  load()
 
-loadData()
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.addEventListener("click", () => showPage(item.dataset.page))
+  })
+
+  document.querySelector(".theme-toggle").addEventListener("click", toggleTheme)
+
+  document.getElementById("quickSaveBtn").addEventListener("click", quickSave)
+  document.getElementById("saveEntryBtn").addEventListener("click", saveEntry)
+  document.getElementById("templateBtn").addEventListener("click", useTemplate)
+  document.getElementById("searchInput").addEventListener("input", searchEntries)
+  document.getElementById("chartType").addEventListener("change", updateChart)
+  document.getElementById("timeRange").addEventListener("change", updateChart)
+  document.getElementById("saveSettingsBtn").addEventListener("click", saveSettings)
+  document.getElementById("addMoodBtn").addEventListener("click", addMood)
+  document.getElementById("exportBtn").addEventListener("click", exportData)
+  document.getElementById("importBtn").addEventListener("click", importData)
+  document.getElementById("clearBtn").addEventListener("click", clearAllData)
+  document.getElementById("importFile").addEventListener("change", handleImport)
+  document.getElementById("updateBtn").addEventListener("click", updateEntry)
+  document.getElementById("cancelBtn").addEventListener("click", closeModal)
+
+  document.addEventListener("click", (e) => {
+    if (e.target.classList.contains("mood-btn")) {
+      selectMood(e.target)
+    }
+    if (e.target.classList.contains("modal")) {
+      closeModal()
+    }
+  })
+})
